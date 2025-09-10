@@ -1,0 +1,434 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mapa de Distribuição Geográfica - Bolhas Proporcionais</title>
+    
+    <!-- Leaflet CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.7.1/dist/leaflet.css" />
+    
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #f0f5f9;
+            color: #333;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        header {
+            text-align: center;
+            margin-bottom: 20px;
+            background: linear-gradient(135deg, #2c3e50, #4a69bd);
+            color: white;
+            padding: 25px;
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+        }
+        h1 {
+            margin: 0;
+            font-size: 2.2rem;
+        }
+        .description {
+            font-size: 1.1rem;
+            margin-top: 10px;
+            opacity: 0.9;
+        }
+        #map-container {
+            display: flex;
+            flex-direction: column;
+            background: white;
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+        }
+        #map {
+            height: 600px;
+            width: 100%;
+            z-index: 1;
+        }
+        .controls {
+            display: flex;
+            justify-content: space-between;
+            padding: 15px;
+            background-color: #2c3e50;
+            color: white;
+        }
+        .stats {
+            display: flex;
+            gap: 20px;
+        }
+        .stat-box {
+            background-color: #4a69bd;
+            padding: 10px 15px;
+            border-radius: 6px;
+            text-align: center;
+            min-width: 120px;
+        }
+        .stat-value {
+            font-size: 1.5rem;
+            font-weight: bold;
+        }
+        .stat-label {
+            font-size: 0.9rem;
+            opacity: 0.8;
+        }
+        .info {
+            padding: 10px 14px;
+            font: 14px/16px Arial, Helvetica, sans-serif;
+            background: white;
+            box-shadow: 0 0 15px rgba(0,0,0,0.2);
+            border-radius: 5px;
+        }
+        .info h4 {
+            margin: 0 0 8px;
+            color: #333;
+            font-size: 16px;
+        }
+        .legend {
+            line-height: 20px;
+            color: #555;
+            background: rgba(255, 255, 255, 0.9);
+            padding: 12px;
+            border-radius: 6px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+        }
+        .legend h4 {
+            text-align: center;
+            margin: 0 0 10px;
+            font-size: 14px;
+            font-weight: bold;
+            color: #2c3e50;
+        }
+        .legend i {
+            width: 20px;
+            height: 20px;
+            float: left;
+            margin-right: 10px;
+            opacity: 0.8;
+            border-radius: 50%;
+            display: inline-block;
+            vertical-align: middle;
+        }
+        .legend div {
+            margin: 8px 0;
+            display: flex;
+            align-items: center;
+        }
+        .legend span {
+            vertical-align: middle;
+        }
+        footer {
+            text-align: center;
+            margin-top: 20px;
+            color: #7f8c8d;
+            font-size: 0.9rem;
+        }
+        @media (max-width: 768px) {
+            .controls {
+                flex-direction: column;
+                gap: 15px;
+            }
+            .stats {
+                justify-content: space-around;
+                width: 100%;
+            }
+            #map {
+                height: 450px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>Mapa de Distribuição Geográfica</h1>
+            <p class="description">Visualização de cidades com bolhas proporcionais aos valores</p>
+        </header>
+        
+        <div id="map-container">
+            <div class="controls">
+                <div class="stats">
+                    <div class="stat-box">
+                        <div class="stat-value">542</div>
+                        <div class="stat-label">Total de Registros</div>
+                    </div>
+                    <div class="stat-box">
+                        <div class="stat-value">15</div>
+                        <div class="stat-label">Países</div>
+                    </div>
+                    <div class="stat-box">
+                        <div class="stat-value">136</div>
+                        <div class="stat-label">Cidades</div>
+                    </div>
+                </div>
+            </div>
+            <div id="map"></div>
+        </div>
+        
+        <footer>
+            <p>Mapa interativo criado com Leaflet | Dados proporcionais à coluna "Total"</p>
+        </footer>
+    </div>
+
+    <!-- Leaflet JS -->
+    <script src="https://unpkg.com/leaflet@1.7.1/dist/leaflet.js"></script>
+    
+    <script>
+        // Dados completos fornecidos
+        const data = [
+            {cidade: "São Paulo", pais: "Brasil", lat: -23.5505, lng: -46.6333, total: 83},
+            {cidade: "Porto Alegre", pais: "Brasil", lat: -30.0346, lng: -51.2177, total: 64},
+            {cidade: "Montes Claros", pais: "Brasil", lat: -16.735, lng: -43.861, total: 25},
+            {cidade: "Belém", pais: "Brasil", lat: -1.4558, lng: -48.4902, total: 18},
+            {cidade: "Rio de Janeiro", pais: "Brasil", lat: -22.9068, lng: -43.1729, total: 17},
+            {cidade: "Campinas", pais: "Brasil", lat: -22.9099, lng: -47.0626, total: 16},
+            {cidade: "Maceió", pais: "Brasil", lat: -9.6498, lng: -35.7089, total: 9},
+            {cidade: "Conceição do Coité", pais: "Brasil", lat: -11.5616, lng: -39.2801, total: 8},
+            {cidade: "Florianópolis", pais: "Brasil", lat: -27.5954, lng: -48.548, total: 7},
+            {cidade: "Fortaleza", pais: "Brasil", lat: -3.7172, lng: -38.5434, total: 6},
+            {cidade: "Brasília", pais: "Brasil", lat: -15.8267, lng: -47.9218, total: 6},
+            {cidade: "Goiânia", pais: "Brasil", lat: -16.6869, lng: -49.2648, total: 6},
+            {cidade: "Curitiba", pais: "Brasil", lat: -25.4284, lng: -49.2733, total: 6},
+            {cidade: "Ubatuba", pais: "Brasil", lat: -23.4335, lng: -45.0839, total: 6},
+            {cidade: "Natal", pais: "Brasil", lat: -5.7945, lng: -35.211, total: 6},
+            {cidade: "Guarulhos", pais: "Brasil", lat: -23.4538, lng: -46.5333, total: 5},
+            {cidade: "Dourados", pais: "Brasil", lat: -22.2231, lng: -54.8059, total: 5},
+            {cidade: "Niterói", pais: "Brasil", lat: -22.8833, lng: -43.1034, total: 5},
+            {cidade: "São Bernardo do Campo", pais: "Brasil", lat: -23.6921, lng: -46.5646, total: 4},
+            {cidade: "Santa Maria", pais: "Brasil", lat: -29.6842, lng: -53.8069, total: 4},
+            {cidade: "Londrina", pais: "Brasil", lat: -23.3045, lng: -51.1696, total: 4},
+            {cidade: "Recife", pais: "Brasil", lat: -8.0476, lng: -34.877, total: 4},
+            {cidade: "Santo André", pais: "Brasil", lat: -23.6737, lng: -46.5436, total: 3},
+            {cidade: "São José do Rio Preto", pais: "Brasil", lat: -20.8113, lng: -49.3759, total: 3},
+            {cidade: "Aracaju", pais: "Brasil", lat: -10.9472, lng: -37.0731, total: 3},
+            {cidade: "Jundiaí", pais: "Brasil", lat: -23.1857, lng: -46.8978, total: 3},
+            {cidade: "São José dos Campos", pais: "Brasil", lat: -23.1896, lng: -45.8841, total: 3},
+            {cidade: "Belo Horizonte", pais: "Brasil", lat: -19.9245, lng: -43.9352, total: 3},
+            {cidade: "Itaberaba", pais: "Brasil", lat: -12.5281, lng: -40.3066, total: 3},
+            {cidade: "Uberlândia", pais: "Brasil", lat: -18.9113, lng: -48.2622, total: 3},
+            {cidade: "Nova Petrópolis", pais: "Brasil", lat: -29.3747, lng: -51.1136, total: 2},
+            {cidade: "João Pessoa", pais: "Brasil", lat: -7.1195, lng: -34.845, total: 2},
+            {cidade: "Novo Hamburgo", pais: "Brasil", lat: -29.6842, lng: -51.1328, total: 2},
+            {cidade: "Pelotas", pais: "Brasil", lat: -31.7648, lng: -52.3371, total: 2},
+            {cidade: "São José da Coroa Grande", pais: "Brasil", lat: -8.8978, lng: -35.147, total: 2},
+            {cidade: "Pontal do Paraná", pais: "Brasil", lat: -25.6736, lng: -48.5119, total: 2},
+            {cidade: "São Luís", pais: "Brasil", lat: -2.5387, lng: -44.2825, total: 2},
+            {cidade: "Ananindeua", pais: "Brasil", lat: -1.3656, lng: -48.3722, total: 2},
+            {cidade: "Teresina", pais: "Brasil", lat: -5.0892, lng: -42.8019, total: 2},
+            {cidade: "Carapicuíba", pais: "Brasil", lat: -23.5235, lng: -46.8355, total: 2},
+            {cidade: "Viamão", pais: "Brasil", lat: -30.0819, lng: -51.0233, total: 2},
+            {cidade: "Ivoti", pais: "Brasil", lat: -29.5914, lng: -51.1535, total: 2},
+            {cidade: "Indaiatuba", pais: "Brasil", lat: -23.0885, lng: -47.2115, total: 2},
+            {cidade: "Ribeirão Preto", pais: "Brasil", lat: -21.1699, lng: -47.8099, total: 2},
+            {cidade: "São Leopoldo", pais: "Brasil", lat: -29.7547, lng: -51.1491, total: 2},
+            {cidade: "Caruaru", pais: "Brasil", lat: -8.2844, lng: -35.969, total: 2},
+            {cidade: "Sao Paulo", pais: "Brasil", lat: -23.5505, lng: -46.6333, total: 2},
+            {cidade: "Salvador", pais: "Brasil", lat: -12.9714, lng: -38.5014, total: 2},
+            {cidade: "Sorocaba", pais: "Brasil", lat: -23.5015, lng: -47.4526, total: 2},
+            {cidade: "Mairiporã", pais: "Brasil", lat: -23.3183, lng: -46.5897, total: 2},
+            {cidade: "Paulinia", pais: "Brasil", lat: -22.7611, lng: -47.1541, total: 2},
+            {cidade: "Santarém", pais: "Brasil", lat: -2.4385, lng: -54.6996, total: 2},
+            {cidade: "Boa Vista", pais: "Brasil", lat: 2.8235, lng: -60.6758, total: 2},
+            {cidade: "Queimadas", pais: "Brasil", lat: -10.9737, lng: -39.629, total: 2},
+            {cidade: "Matinhos", pais: "Brasil", lat: -25.8237, lng: -48.5302, total: 2},
+            {cidade: "São Carlos", pais: "Brasil", lat: -22.0178, lng: -47.8908, total: 1},
+            {cidade: "Rio Claro", pais: "Brasil", lat: -22.4111, lng: -47.561, total: 1},
+            {cidade: "Sumaré", pais: "Brasil", lat: -22.8217, lng: -47.2667, total: 1},
+            {cidade: "Ituverava", pais: "Brasil", lat: -20.3396, lng: -47.7755, total: 1},
+            {cidade: "Sant'Ana do Livramento", pais: "Brasil", lat: -30.8771, lng: -55.5392, total: 1},
+            {cidade: "Arcoverde", pais: "Brasil", lat: -8.4152, lng: -37.0532, total: 1},
+            {cidade: "Hortolândia", pais: "Brasil", lat: -22.8583, lng: -47.2133, total: 1},
+            {cidade: "Jaboatão dos Guararapes", pais: "Brasil", lat: -8.112, lng: -35.015, total: 1},
+            {cidade: "Valinhos", pais: "Brasil", lat: -22.9706, lng: -46.9959, total: 1},
+            {cidade: "Jacarezinho", pais: "Brasil", lat: -23.1592, lng: -49.9735, total: 1},
+            {cidade: "Feira de Santana", pais: "Brasil", lat: -12.2666, lng: -38.9663, total: 1},
+            {cidade: "Brasópolis", pais: "Brasil", lat: -22.4741, lng: -45.6091, total: 1},
+            {cidade: "Santo Estevão", pais: "Brasil", lat: -12.4289, lng: -39.2506, total: 1},
+            {cidade: "Juazeiro do Norte", pais: "Brasil", lat: -7.2131, lng: -39.3152, total: 1},
+            {cidade: "Betim", pais: "Brasil", lat: -19.9677, lng: -44.1981, total: 1},
+            {cidade: "Cambé", pais: "Brasil", lat: -23.2766, lng: -51.2792, total: 1},
+            {cidade: "São Sebastião", pais: "Brasil", lat: -23.7785, lng: -45.414, total: 1},
+            {cidade: "Lagoa Santa", pais: "Brasil", lat: -19.6308, lng: -43.8919, total: 1},
+            {cidade: "Imperatriz", pais: "Brasil", lat: -5.5185, lng: -47.4777, total: 1},
+            {cidade: "Arroio Grande", pais: "Brasil", lat: -32.2377, lng: -53.0862, total: 1},
+            {cidade: "Itararé", pais: "Brasil", lat: -24.1129, lng: -49.3356, total: 1},
+            {cidade: "Lorena", pais: "Brasil", lat: -22.7309, lng: -45.124, total: 1},
+            {cidade: "Rio e Janeiro", pais: "Brasil", lat: -22.9068, lng: -43.1729, total: 1},
+            {cidade: "Campo Grande", pais: "Brasil", lat: -20.4697, lng: -54.6201, total: 1},
+            {cidade: "Santa Maria da Vitória", pais: "Brasil", lat: -13.3851, lng: -44.2007, total: 1},
+            {cidade: "Cândido Mota", pais: "Brasil", lat: -22.7461, lng: -50.3828, total: 1},
+            {cidade: "Santo Amaro", pais: "Brasil", lat: -12.5472, lng: -38.7133, total: 1},
+            {cidade: "Mamanguape", pais: "Brasil", lat: -6.8333, lng: -35.1333, total: 1},
+            {cidade: "Francisco Morato", pais: "Brasil", lat: -23.2796, lng: -46.7448, total: 1},
+            {cidade: "Manaus", pais: "Brasil", lat: -3.119, lng: -60.0217, total: 1},
+            {cidade: "São José", pais: "Brasil", lat: -27.6136, lng: -48.6366, total: 1},
+            {cidade: "Marília", pais: "Brasil", lat: -22.2171, lng: -49.9501, total: 1},
+            {cidade: "Biguaçu", pais: "Brasil", lat: -27.4942, lng: -48.6556, total: 1},
+            {cidade: "Maringá", pais: "Brasil", lat: -23.425, lng: -51.9389, total: 1},
+            {cidade: "Iguape", pais: "Brasil", lat: -24.7083, lng: -47.5554, total: 1},
+            {cidade: "Vitoriano Veloso", pais: "Brasil", lat: -20.8543, lng: -43.6933, total: 1},
+            {cidade: "Imbé", pais: "Brasil", lat: -29.9753, lng: -50.1284, total: 1},
+            {cidade: "Águas Claras", pais: "Brasil", lat: -15.84, lng: -48.0939, total: 1},
+            {cidade: "Taquara", pais: "Brasil", lat: -29.6506, lng: -50.7752, total: 1},
+            {cidade: "Montalvânia", pais: "Brasil", lat: -14.4184, lng: -44.3632, total: 1},
+            {cidade: "Bonfim", pais: "Brasil", lat: 3.0846, lng: -60.3665, total: 1},
+            {cidade: "Canoas", pais: "Brasil", lat: -29.9128, lng: -51.1858, total: 1},
+            {cidade: "Itajaí", pais: "Brasil", lat: -26.9078, lng: -48.6619, total: 1},
+            {cidade: "Capão da Canoa", pais: "Brasil", lat: -29.7469, lng: -50.0079, total: 1},
+            {cidade: "Americana", pais: "Brasil", lat: -22.7374, lng: -47.3331, total: 1},
+            {cidade: "Nazaré", pais: "Brasil", lat: -13.0327, lng: -39.016, total: 1},
+            {cidade: "Erechim", pais: "Brasil", lat: -27.6346, lng: -52.2732, total: 1},
+            {cidade: "Capão do Cipó", pais: "Brasil", lat: -28.9317, lng: -54.5603, total: 1},
+            {cidade: "Rio Grande", pais: "Brasil", lat: -32.0346, lng: -52.1019, total: 1},
+            {cidade: "Nova Iguaçu", pais: "Brasil", lat: -22.7561, lng: -43.4516, total: 1},
+            {cidade: "Belford Roxo", pais: "Brasil", lat: -22.764, lng: -43.3992, total: 1},
+            {cidade: "Capinzal", pais: "Brasil", lat: -27.3472, lng: -51.605, total: 1},
+            {cidade: "Santa Vitória do Palmar", pais: "Brasil", lat: -33.525, lng: -53.3689, total: 1},
+            {cidade: "Assis", pais: "Brasil", lat: -22.6605, lng: -50.4182, total: 1},
+            {cidade: "Antônio Carlos", pais: "Brasil", lat: -27.5167, lng: -48.7667, total: 1},
+            {cidade: "Oiapoque", pais: "Brasil", lat: 3.84, lng: -51.8344, total: 1},
+            {cidade: "Franca", pais: "Brasil", lat: -20.5389, lng: -47.4008, total: 1},
+            {cidade: "Osasco", pais: "Brasil", lat: -23.5329, lng: -46.7919, total: 1},
+            {cidade: "Santos", pais: "Brasil", lat: -23.9608, lng: -46.3339, total: 1},
+            {cidade: "Osório", pais: "Brasil", lat: -29.8881, lng: -50.2683, total: 1},
+            {cidade: "São Borja", pais: "Brasil", lat: -28.6592, lng: -56.0035, total: 1},
+            {cidade: "Pacatuba", pais: "Brasil", lat: -3.9831, lng: -38.6189, total: 1},
+            {cidade: "São Félix", pais: "Brasil", lat: -12.6061, lng: -38.9725, total: 1},
+            {cidade: "Paraty", pais: "Brasil", lat: -23.2221, lng: -44.7174, total: 1},
+            {cidade: "Franco da Rocha", pais: "Brasil", lat: -23.3286, lng: -46.7244, total: 1},
+            {cidade: "Pareci Novo", pais: "Brasil", lat: -29.6369, lng: -51.3978, total: 1},
+            {cidade: "Guaíba", pais: "Brasil", lat: -30.1083, lng: -51.3238, total: 1},
+            {cidade: "Passo Fundo", pais: "Brasil", lat: -28.2576, lng: -52.4083, total: 1},
+            {cidade: "São Luis", pais: "Brasil", lat: -2.5387, lng: -44.2825, total: 1},
+            {cidade: "Carmésia", pais: "Brasil", lat: -19.0871, lng: -43.1659, total: 1},
+            {cidade: "Igarapava", pais: "Brasil", lat: -20.0397, lng: -47.7466, total: 1},
+            {cidade: "Bagé", pais: "Brasil", lat: -31.3297, lng: -54.11, total: 1},
+            {cidade: "São Roque", pais: "Brasil", lat: -23.5293, lng: -47.1357, total: 1},
+            {cidade: "Piracicaba", pais: "Brasil", lat: -22.7338, lng: -47.6476, total: 1},
+            {cidade: "São Vicente", pais: "Brasil", lat: -23.9633, lng: -46.3922, total: 1},
+            {cidade: "Piratininga", pais: "Brasil", lat: -22.4139, lng: -49.1361, total: 1},
+            {cidade: "Sousa", pais: "Brasil", lat: -6.7592, lng: -38.2289, total: 1},
+            {cidade: "Pium-Parnamirim", pais: "Brasil", lat: -5.9128, lng: -35.2656, total: 1},
+            {cidade: "Suzano", pais: "Brasil", lat: -23.5428, lng: -46.3109, total: 1},
+            {cidade: "Cascavel", pais: "Brasil", lat: -24.9577, lng: -53.459, total: 1},
+            {cidade: "Taquarituba", pais: "Brasil", lat: -23.5303, lng: -49.2453, total: 1},
+            {cidade: "Barreiras", pais: "Brasil", lat: -12.1525, lng: -44.99, total: 1},
+            {cidade: "Amparo", pais: "Brasil", lat: -22.7081, lng: -46.764, total: 1},
+            {cidade: "Porto Seguro", pais: "Brasil", lat: -16.4511, lng: -39.0643, total: 1},
+            {cidade: "Uruguaiana", pais: "Brasil", lat: -29.7604, lng: -57.0882, total: 1},
+            {cidade: "Corumbá", pais: "Brasil", lat: -19.0079, lng: -57.651, total: 1},
+            {cidade: "Valparaíso", pais: "Brasil", lat: -16.0667, lng: -47.975, total: 1},
+            {cidade: "Barueri", pais: "Brasil", lat: -23.5058, lng: -46.879, total: 1},
+            {cidade: "Vitória", pais: "Brasil", lat: -20.3155, lng: -40.3128, total: 1},
+            {cidade: "Riachão do Jacuipe", pais: "Brasil", lat: -11.8068, lng: -39.3853, total: 1},
+            {cidade: "Ribeirão das Neves", pais: "Brasil", lat: -19.7669, lng: -44.0869, total: 1},
+            {cidade: "Mogi das Cruzes", pais: "Brasil", lat: -23.5208, lng: -46.1854, total: 1},
+            {cidade: "Lisboa", pais: "Portugal", lat: 38.7167, lng: -9.139, total: 18},
+            {cidade: "Porto", pais: "Portugal", lat: 41.1496, lng: -8.611, total: 7},
+            {cidade: "Aveiro", pais: "Portugal", lat: 40.6405, lng: -8.6538, total: 2},
+            {cidade: "Sintra", pais: "Portugal", lat: 38.7984, lng: -9.3878, total: 2},
+            {cidade: "Covilhã", pais: "Portugal", lat: 40.286, lng: -7.5033, total: 1},
+            {cidade: "São Raimundo Nonato", pais: "Portugal", lat: 39.7445, lng: -8.6436, total: 1},
+            {cidade: "Quinta do Conde", pais: "Portugal", lat: 38.5667, lng: -9.0667, total: 1},
+            {cidade: "Coimbra", pais: "Portugal", lat: 40.2033, lng: -8.4103, total: 1},
+            {cidade: "Setúbal", pais: "Portugal", lat: 38.5244, lng: -8.8926, total: 1},
+            {cidade: "Vila Real", pais: "Portugal", lat: 41.2959, lng: -7.7469, total: 1},
+            {cidade: "Vila Nova de Gaia", pais: "Portugal", lat: 41.1244, lng: -8.6129, total: 1},
+            {cidade: "Monte Estoril", pais: "Portugal", lat: 38.7028, lng: -9.4089, total: 1},
+            {cidade: "Almada", pais: "Portugal", lat: 38.6762, lng: -9.1659, total: 1},
+            {cidade: "Peniche", pais: "Portugal", lat: 39.3558, lng: -9.3816, total: 1},
+            {cidade: "Berlin", pais: "Alemanha", lat: 52.52, lng: 13.405, total: 3},
+            {cidade: "Colônia", pais: "Alemanha", lat: 50.9375, lng: 6.9603, total: 1},
+            {cidade: "Las Piedras", pais: "Uruguai", lat: -34.7306, lng: -56.2152, total: 3},
+            {cidade: "Quito", pais: "Equador", lat: -0.1807, lng: -78.4678, total: 3},
+            {cidade: "Cairo", pais: "Egito", lat: 30.0444, lng: 31.2357, total: 2},
+            {cidade: "Enugu", pais: "Nigéria", lat: 6.5244, lng: 7.5186, total: 1},
+            {cidade: "Casablanca", pais: "Marrocos", lat: 33.5731, lng: -7.5898, total: 1},
+            {cidade: "San Gil", pais: "Colômbia", lat: 6.5593, lng: -73.131, total: 1},
+            {cidade: "Skopje", pais: "Macedônia", lat: 41.9981, lng: 21.4254, total: 1},
+            {cidade: "Cochabamba", pais: "Bolívia", lat: -17.3935, lng: -66.157, total: 1},
+            {cidade: "Ensenada", pais: "México", lat: 31.8667, lng: -116.6, total: 1},
+            {cidade: "Mindelo", pais: "Cabo Verde", lat: 16.8833, lng: -25, total: 1},
+            {cidade: "Montreal", pais: "Canadá", lat: 45.5017, lng: -73.5673, total: 1},
+            {cidade: "Teerã", pais: "Irã", lat: 35.6892, lng: 51.389, total: 1},
+            {cidade: "Dublin", pais: "Irlanda", lat: 53.3498, lng: -6.2603, total: 1},
+            {cidade: "Coruña", pais: "Espanha", lat: 43.3623, lng: -8.4115, total: 1}
+        ];
+
+        // Inicializar o mapa
+        const map = L.map('map').setView([10, -30], 3);
+
+        // Adicionar camada base do OpenStreetMap
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+        }).addTo(map);
+
+        // Encontrar o valor máximo para normalizar os tamanhos das bolhas
+        const maxTotal = Math.max(...data.map(item => item.total));
+
+        // Agrupar países para legenda de cores
+        const countries = [...new Set(data.map(item => item.pais))];
+        const countryColors = {};
+        const colorPalette = [
+            '#e41a1c', '#377eb8', '#4daf4a', '#984ea3', '#ff7f00', 
+            '#ffff33', '#a65628', '#f781bf', '#999999', '#66c2a5',
+            '#fc8d62', '#8da0cb', '#e78ac3', '#a6d854', '#ffd92f'
+        ];
+        
+        countries.forEach((country, index) => {
+            countryColors[country] = colorPalette[index % colorPalette.length];
+        });
+
+        // Adicionar marcadores de bolha para cada cidade
+        data.forEach(city => {
+            // Calcular o raio com base no total (proporcional ao valor máximo)
+            const radius = (city.total / maxTotal) * 25 + 3;
+            
+            // Criar e adicionar o círculo ao mapa
+            const circle = L.circleMarker([city.lat, city.lng], {
+                color: countryColors[city.pais],
+                weight: 1,
+                fillColor: countryColors[city.pais],
+                fillOpacity: 0.7,
+                radius: radius
+            }).addTo(map);
+            
+            // Adicionar popup com informações
+            circle.bindPopup(`
+                <div style="text-align: center;">
+                    <strong>${city.cidade}</strong><br>
+                    ${city.pais}<br>
+                    Total: <b>${city.total}</b><br>
+                    Coordenadas: ${city.lat.toFixed(4)}, ${city.lng.toFixed(4)}
+                </div>
+            `);
+        });
+
+        // Adicionar legenda de tamanhos
+        const legend = L.control({position: 'bottomleft'});
+        legend.onAdd = function(map) {
+            const div = L.DomUtil.create('div', 'legend');
+            div.innerHTML = `
+                <h4>Legenda de Tamanhos</h4>
+                <div><i style="background: #3388ff; width: 8px; height: 8px;"></i><span>Pequeno (1-10)</span></div>
+                <div><i style="background: #3388ff; width: 16px; height: 16px;"></i><span>Médio (11-30)</span></div>
+                <div><i style="background: #3388ff; width: 24px; height: 24px;"></i><span>Grande (31-83)</span></div>
+                <br>
+                <h4>Legenda de Cores (Países)</h4>
+                ${countries.map(country => 
+                    `<div><i style="background: ${countryColors[country]}"></i><span>${country}</span></div>`
+                ).join('')}
+            `;
+            return div;
+        };
+        legend.addTo(map);
+    </script>
+</body>
+</html>
